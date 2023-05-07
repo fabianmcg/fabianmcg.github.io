@@ -1,0 +1,282 @@
+---
+layout: post
+title:  "XBLang: An extensible programming language & compiler built on top of MLIR"
+date:   2023-05-07
+categories: xblang
+---
+{% highlight rust %}
+fn saxpy(x: f64*, y: f64*, a: f64, n: i32) {
+  for(let i: i32 in 0 : n)
+    x[i] = a * x[i] + y[i];
+}
+{% endhighlight %}
+
+{% highlight plaintext %}
+`-TranslationUnit 0x561C7768BF78 <-1:-1> 
+ `-ModuleDecl 0x561C77668438 <1:1>  
+  |-FunctionDecl 0x561C776868F8 <1:1> saxpy (!xblang.ptr<f64>, !xblang.ptr<f64>, f64, si32) -> ()
+  | |-ParamDecl 0x561C7768E718 <1:10> x !xblang.ptr<f64>
+  | |-ParamDecl 0x561C7768EA38 <1:19> y !xblang.ptr<f64>
+  | |-ParamDecl 0x561C7768ECA8 <1:28> a f64
+  | |-ParamDecl 0x561C7768EF18 <1:36> n si32
+  | `-CompoundStmt 0x561C7768F018 <1:44> 
+  |   `-ForStmt 0x561C77693B08 <2:3> 
+  |    |-RangeStmt 0x561C7768FDA8 <2:7> 
+  |    | |-VarDecl 0x561C7768F458 <2:11> i si32
+  |    | |-DeclRefExpr 0x561C7768F518 <2:11> i [0x561C7768F450] !xblang.ref<si32>
+  |    | `-RangeExpr 0x561C7768FCC8 <2:21> < !xblang.range_t<si32>
+  |    |   |-IntExpr 0x561C7768F7C8 <2:21> 0 si32
+  |    |   `-DeclRefExpr 0x561C7768FC48 <2:25> n [0x561C7768EF10] !xblang.ref<si32>
+  |    `-BinaryOpExpr 0x561C77693A28 <3:5> = !xblang.ref<f64>
+  |      |-ArrayExpr 0x561C77691198 <3:5> !xblang.ref<f64>
+  |      | |-DeclRefExpr 0x561C7768E158 <3:5> x [0x561C7768E710] !xblang.ref<!xblang.ptr<f64>>
+  |      | `-DeclRefExpr 0x561C77691118 <3:7> i [0x561C7768F450] !xblang.ref<si32>
+  |      `-BinaryOpExpr 0x561C77693948 <3:12> + f64
+  |        |-BinaryOpExpr 0x561C776906D8 <3:12> * f64
+  |        | |-DeclRefExpr 0x561C77691568 <3:12> a [0x561C7768ECA0] !xblang.ref<f64>
+  |        | `-ArrayExpr 0x561C776905C8 <3:16> !xblang.ref<f64>
+  |        |   |-DeclRefExpr 0x561C77690088 <3:16> x [0x561C7768E710] !xblang.ref<!xblang.ptr<f64>>
+  |        |   `-DeclRefExpr 0x561C77690548 <3:18> i [0x561C7768F450] !xblang.ref<si32>
+  |        `-ArrayExpr 0x561C77693838 <3:23> !xblang.ref<f64>
+  |          |-DeclRefExpr 0x561C77690A78 <3:23> y [0x561C7768EA30] !xblang.ref<!xblang.ptr<f64>>
+  |          `-DeclRefExpr 0x561C776937B8 <3:25> i [0x561C7768F450] !xblang.ref<si32>
+{% endhighlight %}
+
+{% highlight plaintext %}
+module {
+  xblang.func @saxpy(%arg0: !xblang.ptr<f64>, %arg1: !xblang.ptr<f64>, %arg2: f64, %arg3: si32) {
+    %x = xblang.var[parameter] @x : !xblang.ptr<f64> -> !xblang.ref<!xblang.ptr<f64>> [ = %arg0 : !xblang.ptr<f64>]
+    %y = xblang.var[parameter] @y : !xblang.ptr<f64> -> !xblang.ref<!xblang.ptr<f64>> [ = %arg1 : !xblang.ptr<f64>]
+    %a = xblang.var[parameter] @a : f64 -> !xblang.ref<f64> [ = %arg2 : f64]
+    %n = xblang.var[parameter] @n : si32 -> !xblang.ref<si32> [ = %arg3 : si32]
+    xblang.scope {
+      %i = xblang.var[local] @i : si32 -> !xblang.ref<si32>
+      %0 = xblang.constant(0 : si32) : si32
+      %1 = xblang.range %0 si32 "<" %n !xblang.ref<si32> : <si32>
+      xblang.range_for(%i !xblang.ref<si32> in %1 <si32>) {
+        %2 = xblang.array %x !xblang.ref<!xblang.ptr<f64>> [%i !xblang.ref<si32>] : !xblang.ref<f64>
+        %3 = xblang.bop "*" %a !xblang.ref<f64>, %2 !xblang.ref<f64> : f64
+        %4 = xblang.array %y !xblang.ref<!xblang.ptr<f64>> [%i !xblang.ref<si32>] : !xblang.ref<f64>
+        %5 = xblang.bop "+" %3 f64, %4 !xblang.ref<f64> : f64
+        %6 = xblang.array %x !xblang.ref<!xblang.ptr<f64>> [%i !xblang.ref<si32>] : !xblang.ref<f64>
+        %7 = xblang.bop "=" %6 !xblang.ref<f64>, %5 f64 : !xblang.ref<f64>
+        xblang.yield Fallthrough
+      }
+      xblang.yield Fallthrough
+    }
+    xblang.return
+  }
+}
+{% endhighlight %}
+
+{% highlight plaintext %}
+module {
+  xblang.func @saxpy(%arg0: !xblang.ptr<f64>, %arg1: !xblang.ptr<f64>, %arg2: f64, %arg3: si32) {
+    %0 = xblang.constant(1 : si32) : si32
+    %1 = xblang.constant(0 : si32) : si32
+    %x = xblang.var[parameter] @x : !xblang.ptr<f64> -> !xblang.ref<!xblang.ptr<f64>> [ = %arg0 : !xblang.ptr<f64>]
+    %y = xblang.var[parameter] @y : !xblang.ptr<f64> -> !xblang.ref<!xblang.ptr<f64>> [ = %arg1 : !xblang.ptr<f64>]
+    %a = xblang.var[parameter] @a : f64 -> !xblang.ref<f64> [ = %arg2 : f64]
+    %n = xblang.var[parameter] @n : si32 -> !xblang.ref<si32> [ = %arg3 : si32]
+    xblang.scope {
+      %i = xblang.var[local] @i : si32 -> !xblang.ref<si32>
+      %2 = xblang.bop "=" %i !xblang.ref<si32>, %1 si32 : !xblang.ref<si32>
+      xblang.loop condition : {
+        %3 = xblang.cast %n !xblang.ref<si32> : si32
+        %4 = xblang.cast %i !xblang.ref<si32> : si32
+        %5 = xblang.bop "<" %4 si32, %3 si32 : i1
+        xblang.yield Fallthrough %5 i1
+      } body : {
+        %3 = xblang.cast %x !xblang.ref<!xblang.ptr<f64>> : !xblang.ptr<f64>
+        %4 = xblang.cast %i !xblang.ref<si32> : si32
+        %5 = xblang.cast %4 si32 : index
+        %6 = xblang.array %3 !xblang.ptr<f64> [%5 index] : !xblang.ref<f64>
+        %7 = xblang.cast %6 !xblang.ref<f64> : f64
+        %8 = xblang.cast %a !xblang.ref<f64> : f64
+        %9 = xblang.bop "*" %8 f64, %7 f64 : f64
+        %10 = xblang.cast %y !xblang.ref<!xblang.ptr<f64>> : !xblang.ptr<f64>
+        %11 = xblang.cast %i !xblang.ref<si32> : si32
+        %12 = xblang.cast %11 si32 : index
+        %13 = xblang.array %10 !xblang.ptr<f64> [%12 index] : !xblang.ref<f64>
+        %14 = xblang.cast %13 !xblang.ref<f64> : f64
+        %15 = xblang.bop "+" %9 f64, %14 f64 : f64
+        %16 = xblang.cast %x !xblang.ref<!xblang.ptr<f64>> : !xblang.ptr<f64>
+        %17 = xblang.cast %i !xblang.ref<si32> : si32
+        %18 = xblang.cast %17 si32 : index
+        %19 = xblang.array %16 !xblang.ptr<f64> [%18 index] : !xblang.ref<f64>
+        %20 = xblang.bop "=" %19 !xblang.ref<f64>, %15 f64 : !xblang.ref<f64>
+        xblang.yield Fallthrough
+      } iteration : {
+        %3 = xblang.cast %i !xblang.ref<si32> : si32
+        %4 = xblang.bop "+" %3 si32, %0 si32 : si32
+        %5 = xblang.bop "=" %i !xblang.ref<si32>, %4 si32 : !xblang.ref<si32>
+        xblang.yield Fallthrough
+      }
+      xblang.yield Fallthrough
+    }
+    xblang.return
+  }
+}
+{% endhighlight %}
+
+{% highlight plaintext %}
+module {
+  func.func @saxpy(%arg0: !xblang.ptr<f64>, %arg1: !xblang.ptr<f64>, %arg2: f64, %arg3: i32) {
+    %c1_i32 = arith.constant 1 : i32
+    %c0_i32 = arith.constant 0 : i32
+    %alloca = memref.alloca() : memref<!xblang.ptr<f64>>
+    memref.store %arg0, %alloca[] : memref<!xblang.ptr<f64>>
+    %alloca_0 = memref.alloca() : memref<!xblang.ptr<f64>>
+    memref.store %arg1, %alloca_0[] : memref<!xblang.ptr<f64>>
+    %alloca_1 = memref.alloca() : memref<f64>
+    memref.store %arg2, %alloca_1[] : memref<f64>
+    %alloca_2 = memref.alloca() : memref<i32>
+    memref.store %arg3, %alloca_2[] : memref<i32>
+    xblang.scope {
+      %alloca_3 = memref.alloca() : memref<i32>
+      memref.store %c0_i32, %alloca_3[] : memref<i32>
+      xblang.loop condition : {
+        %0 = memref.load %alloca_2[] : memref<i32>
+        %1 = memref.load %alloca_3[] : memref<i32>
+        %2 = arith.cmpi slt, %1, %0 : i32
+        xblang.yield Fallthrough %2 i1
+      } body : {
+        %0 = memref.load %alloca[] : memref<!xblang.ptr<f64>>
+        %1 = memref.load %alloca_3[] : memref<i32>
+        %2 = index.casts %1 : i32 to index
+        %3 = xblang.cast %0 !xblang.ptr<f64> : memref<f64> {low}
+        %reinterpret_cast = memref.reinterpret_cast %3 to offset: [0], sizes: [9223372036854775807], strides: [1] : memref<f64> to memref<9223372036854775807xf64, strided<[1]>>
+        %subview = memref.subview %reinterpret_cast[%2] [1] [1] : memref<9223372036854775807xf64, strided<[1]>> to memref<1xf64, strided<[1], offset: ?>>
+        %idx0 = index.constant 0
+        %4 = memref.load %subview[%idx0] : memref<1xf64, strided<[1], offset: ?>>
+        %5 = memref.load %alloca_1[] : memref<f64>
+        %6 = arith.mulf %5, %4 : f64
+        %7 = memref.load %alloca_0[] : memref<!xblang.ptr<f64>>
+        %8 = memref.load %alloca_3[] : memref<i32>
+        %9 = index.casts %8 : i32 to index
+        %10 = xblang.cast %7 !xblang.ptr<f64> : memref<f64> {low}
+        %reinterpret_cast_4 = memref.reinterpret_cast %10 to offset: [0], sizes: [9223372036854775807], strides: [1] : memref<f64> to memref<9223372036854775807xf64, strided<[1]>>
+        %subview_5 = memref.subview %reinterpret_cast_4[%9] [1] [1] : memref<9223372036854775807xf64, strided<[1]>> to memref<1xf64, strided<[1], offset: ?>>
+        %idx0_6 = index.constant 0
+        %11 = memref.load %subview_5[%idx0_6] : memref<1xf64, strided<[1], offset: ?>>
+        %12 = arith.addf %6, %11 : f64
+        %13 = memref.load %alloca[] : memref<!xblang.ptr<f64>>
+        %14 = memref.load %alloca_3[] : memref<i32>
+        %15 = index.casts %14 : i32 to index
+        %16 = xblang.cast %13 !xblang.ptr<f64> : memref<f64> {low}
+        %reinterpret_cast_7 = memref.reinterpret_cast %16 to offset: [0], sizes: [9223372036854775807], strides: [1] : memref<f64> to memref<9223372036854775807xf64, strided<[1]>>
+        %subview_8 = memref.subview %reinterpret_cast_7[%15] [1] [1] : memref<9223372036854775807xf64, strided<[1]>> to memref<1xf64, strided<[1], offset: ?>>
+        %idx0_9 = index.constant 0
+        memref.store %12, %subview_8[%idx0_9] : memref<1xf64, strided<[1], offset: ?>>
+        xblang.yield Fallthrough
+      } iteration : {
+        %0 = memref.load %alloca_3[] : memref<i32>
+        %1 = arith.addi %0, %c1_i32 : i32
+        memref.store %1, %alloca_3[] : memref<i32>
+        xblang.yield Fallthrough
+      }
+      xblang.yield Fallthrough
+    }
+    xblang.return {low}
+  }
+}
+{% endhighlight %}
+
+{% highlight plaintext %}
+module {
+  llvm.func @saxpy(%arg0: !llvm.ptr, %arg1: !llvm.ptr, %arg2: f64, %arg3: i32) {
+    %0 = llvm.mlir.constant(1 : i32) : i32
+    %1 = llvm.mlir.constant(0 : i32) : i32
+    %2 = llvm.mlir.null : !llvm.ptr
+    %3 = llvm.getelementptr %2[1] : (!llvm.ptr) -> !llvm.ptr, !llvm.ptr
+    %4 = llvm.ptrtoint %3 : !llvm.ptr to i64
+    %5 = llvm.alloca %4 x !llvm.ptr : (i64) -> !llvm.ptr
+    llvm.store %arg0, %5 : !llvm.ptr, !llvm.ptr
+    %6 = llvm.alloca %4 x !llvm.ptr : (i64) -> !llvm.ptr
+    llvm.store %arg1, %6 : !llvm.ptr, !llvm.ptr
+    %7 = llvm.getelementptr %2[1] : (!llvm.ptr) -> !llvm.ptr, f64
+    %8 = llvm.ptrtoint %7 : !llvm.ptr to i64
+    %9 = llvm.alloca %8 x f64 : (i64) -> !llvm.ptr
+    llvm.store %arg2, %9 : f64, !llvm.ptr
+    %10 = llvm.getelementptr %2[1] : (!llvm.ptr) -> !llvm.ptr, i32
+    %11 = llvm.ptrtoint %10 : !llvm.ptr to i64
+    %12 = llvm.alloca %11 x i32 : (i64) -> !llvm.ptr
+    llvm.store %arg3, %12 : i32, !llvm.ptr
+    llvm.br ^bb1
+  ^bb1:  // pred: ^bb0
+    %13 = llvm.alloca %11 x i32 : (i64) -> !llvm.ptr
+    llvm.store %1, %13 : i32, !llvm.ptr
+    llvm.br ^bb2
+  ^bb2:  // 2 preds: ^bb1, ^bb4
+    %14 = llvm.load %12 : !llvm.ptr -> i32
+    %15 = llvm.load %13 : !llvm.ptr -> i32
+    %16 = llvm.icmp "slt" %15, %14 : i32
+    llvm.cond_br %16, ^bb3, ^bb5
+  ^bb3:  // pred: ^bb2
+    %17 = llvm.load %5 : !llvm.ptr -> !llvm.ptr
+    %18 = llvm.load %13 : !llvm.ptr -> i32
+    %19 = llvm.sext %18 : i32 to i64
+    %20 = llvm.getelementptr %17[%19] : (!llvm.ptr, i64) -> !llvm.ptr, f64
+    %21 = llvm.load %20 : !llvm.ptr -> f64
+    %22 = llvm.load %9 : !llvm.ptr -> f64
+    %23 = llvm.fmul %22, %21  : f64
+    %24 = llvm.load %6 : !llvm.ptr -> !llvm.ptr
+    %25 = llvm.getelementptr %24[%19] : (!llvm.ptr, i64) -> !llvm.ptr, f64
+    %26 = llvm.load %25 : !llvm.ptr -> f64
+    %27 = llvm.fadd %23, %26  : f64
+    llvm.store %27, %20 : f64, !llvm.ptr
+    llvm.br ^bb4
+  ^bb4:  // pred: ^bb3
+    %28 = llvm.load %13 : !llvm.ptr -> i32
+    %29 = llvm.add %28, %0  : i32
+    llvm.store %29, %13 : i32, !llvm.ptr
+    llvm.br ^bb2
+  ^bb5:  // pred: ^bb2
+    llvm.br ^bb6
+  ^bb6:  // pred: ^bb5
+    llvm.return
+  }
+}
+{% endhighlight %}
+
+{% highlight plaintext %}
+; ModuleID = 'LLVMDialectModule'
+source_filename = "LLVMDialectModule"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+; Function Attrs: nofree norecurse nosync nounwind memory(argmem: readwrite)
+define void @saxpy(ptr nocapture %0, ptr nocapture readonly %1, double %2, i32 %3) local_unnamed_addr #0 {
+  %5 = icmp sgt i32 %3, 0
+  br i1 %5, label %.lr.ph.preheader, label %._crit_edge
+
+.lr.ph.preheader:                                 ; preds = %4
+  %wide.trip.count = zext i32 %3 to i64
+  br label %.lr.ph
+
+.lr.ph:                                           ; preds = %.lr.ph.preheader, %.lr.ph
+  %indvars.iv = phi i64 [ 0, %.lr.ph.preheader ], [ %indvars.iv.next, %.lr.ph ]
+  %6 = getelementptr double, ptr %0, i64 %indvars.iv
+  %7 = load double, ptr %6, align 8
+  %8 = fmul double %7, %2
+  %9 = getelementptr double, ptr %1, i64 %indvars.iv
+  %10 = load double, ptr %9, align 8
+  %11 = fadd double %8, %10
+  store double %11, ptr %6, align 8
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count
+  br i1 %exitcond.not, label %._crit_edge, label %.lr.ph
+
+._crit_edge:                                      ; preds = %.lr.ph, %4
+  ret void
+}
+
+attributes #0 = { nofree norecurse nosync nounwind memory(argmem: readwrite) }
+
+!llvm.module.flags = !{!0}
+
+!0 = !{i32 2, !"Debug Info Version", i32 3}
+{% endhighlight %}
+
+
+![poster](/assets/images/xblang_poster.png)
