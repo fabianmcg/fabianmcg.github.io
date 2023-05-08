@@ -5,7 +5,4 @@
 layout: home
 ---
 
-# XBLang:
-
-
 ![poster](/assets/images/xblang_poster.png)
