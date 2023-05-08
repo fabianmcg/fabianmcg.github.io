@@ -15,7 +15,7 @@ The compiler has roughly 7 stages, namely:
  1. [Parsing & Lexing](#parsing-&-lexing): The lexer is an automatically generated DFA and the parser is Packrat parser.
  2. [Sema](#sema): propagates expression types, performs name resolution and checks for possible semantic errors.
  3. [MLIR Code Generation](#mlir-code-generation): Translates the AST representation obtained from [Sema](#sema) and generates MLIR IR.
- 4. [Concretization](#concretization): This stage adds type casting and many other constructs for concretizing the IR, needed before lowering to standard dialects. One example of such transformation, is that binary operations before this stage allow operands of different types, after this stage is run, operands might be promoted to a common type.
+ 4. [Concretization](#concretization): This stage adds type casting and many other constructs for concretizing the IR, needed before lowering to standard dialects. One example of such transformation, is that binary operations before at this stage allow operands of different types, after this stage is run, operands might be promoted to a common type, so they can be lowered to `arith` in the next stage.
  5. [Partial lowering to standard dialects](#partial-lowering-to-standard-dialects): transforms many of the high level operations in XBLang to operations in dialect like `func`, `arith`, `gpu`, etc.
  6. [Lowering to LLVM Dialect](#lowering-to-llvm-dialect): applies a total conversion towards the __LLVM__ dialect, converting also any remaining XBLang types and operations.
  7. [LLVM IR Code Generation](#llvm-ir-code-generation): translates the __LLVM__ __MLIR__ dialect to __LLVM__ IR.
