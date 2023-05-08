@@ -4,6 +4,23 @@ title:  "XBLang: An extensible programming language & compiler built on top of M
 date:   2023-05-07
 categories: xblang
 ---
+
+XBLang, or the extensible base language, aims to provide researchers with an extensible compiler and language for fast prototyping and deployment of new language features. Its syntax is close to that of Rust, however at this moment semantics are closer to C.
+
+For more general information and results see the [poster](#poster) at the end of this post.
+
+## Compiler Workflow:
+
+The compiler has roughly 7 stages, namely:
+ 1. [Parsing & Lexing](#parsing-&-lexing): The lexer is an automatically generated DFA and the parser is Packrat parser.
+ 2. [Sema](#sema): propagates expression types, performs name resolution and checks for possible semantic errors.
+ 3. [MLIR Code Generation](#mlir-code-generation): Translates the AST representation obtained from [Sema](#sema) and generates MLIR IR.
+ 4. [Concretization](#concretization): This stage adds type casting and many other constructs for concretizing the IR, needed before lowering to standard dialects. One example of such transformation, is that binary operations before this stage allow operands of different types, after this stage is run, operands might be promoted to a common type.
+ 5. [Partial lowering to standard dialects](#partial-lowering-to-standard-dialects): transforms many of the high level operations in XBLang to operations in dialect like `func`, `arith`, `gpu`, etc.
+ 6. [Lowering to LLVM Dialect](#lowering-to-llvm-dialect): applies a total conversion towards the __LLVM__ dialect, converting also any remaining XBLang types and operations.
+ 7. [LLVM IR Code Generation](#llvm-ir-code-generation): translates the __LLVM__ __MLIR__ dialect to __LLVM__ IR.
+
+For illustrating these stages, the following `XBLang` code will be used as an input, and on each of the following sections is displayed the outcome of the respective stage.
 {% highlight rust %}
 fn saxpy(x: f64*, y: f64*, a: f64, n: i32) {
   for(let i: i32 in 0 : n)
@@ -11,6 +28,39 @@ fn saxpy(x: f64*, y: f64*, a: f64, n: i32) {
 }
 {% endhighlight %}
 
+### Parsing & Lexing
+{% highlight plaintext %}
+`-TranslationUnit 0x55B356E51F78 <-1:-1> 
+ `-ModuleDecl 0x55B356E2E438 <1:1>  
+  `-FunctionDecl 0x55B356E4C8F8 <1:1> saxpy 
+   |-ParamDecl 0x55B356E54718 <1:10> x 
+   |-ParamDecl 0x55B356E54A38 <1:19> y 
+   |-ParamDecl 0x55B356E54CA8 <1:28> a f64
+   |-ParamDecl 0x55B356E54F18 <1:36> n si32
+   `-CompoundStmt 0x55B356E55018 <1:44> 
+     `-ForStmt 0x55B356E59B08 <2:3> 
+      |-RangeStmt 0x55B356E55DA8 <2:7> 
+      | |-VarDecl 0x55B356E55458 <2:11> i si32
+      | |-DeclRefExpr 0x55B356E55518 <2:11> i [0x55B356E55450] si32
+      | `-RangeExpr 0x55B356E55CC8 <2:21> < 
+      |   |-IntExpr 0x55B356E557C8 <2:21> 0 si32
+      |   `-DeclRefExpr 0x55B356E55C48 <2:25> n [0x0] 
+      `-BinaryOpExpr 0x55B356E59A28 <3:5> = 
+        |-ArrayExpr 0x55B356E57198 <3:5> 
+        | |-DeclRefExpr 0x55B356E54158 <3:5> x [0x0] 
+        | `-DeclRefExpr 0x55B356E57118 <3:7> i [0x0] 
+        `-BinaryOpExpr 0x55B356E59948 <3:12> + 
+          |-BinaryOpExpr 0x55B356E566D8 <3:12> * 
+          | |-DeclRefExpr 0x55B356E57568 <3:12> a [0x0] 
+          | `-ArrayExpr 0x55B356E565C8 <3:16> 
+          |   |-DeclRefExpr 0x55B356E56088 <3:16> x [0x0] 
+          |   `-DeclRefExpr 0x55B356E56548 <3:18> i [0x0] 
+          `-ArrayExpr 0x55B356E59838 <3:23> 
+            |-DeclRefExpr 0x55B356E56A78 <3:23> y [0x0] 
+            `-DeclRefExpr 0x55B356E597B8 <3:25> i [0x0] 
+{% endhighlight %}
+
+### Sema
 {% highlight plaintext %}
 `-TranslationUnit 0x561C7768BF78 <-1:-1> 
  `-ModuleDecl 0x561C77668438 <1:1>  
@@ -42,6 +92,7 @@ fn saxpy(x: f64*, y: f64*, a: f64, n: i32) {
   |          `-DeclRefExpr 0x561C776937B8 <3:25> i [0x561C7768F450] !xblang.ref<si32>
 {% endhighlight %}
 
+### MLIR Code Generation
 {% highlight plaintext %}
 module {
   xblang.func @saxpy(%arg0: !xblang.ptr<f64>, %arg1: !xblang.ptr<f64>, %arg2: f64, %arg3: si32) {
@@ -69,6 +120,7 @@ module {
 }
 {% endhighlight %}
 
+### Concretization
 {% highlight plaintext %}
 module {
   xblang.func @saxpy(%arg0: !xblang.ptr<f64>, %arg1: !xblang.ptr<f64>, %arg2: f64, %arg3: si32) {
@@ -119,6 +171,7 @@ module {
 }
 {% endhighlight %}
 
+### Partial lowering to standard dialects
 {% highlight plaintext %}
 module {
   func.func @saxpy(%arg0: !xblang.ptr<f64>, %arg1: !xblang.ptr<f64>, %arg2: f64, %arg3: i32) {
@@ -182,6 +235,7 @@ module {
 }
 {% endhighlight %}
 
+### Lowering to LLVM Dialect
 {% highlight plaintext %}
 module {
   llvm.func @saxpy(%arg0: !llvm.ptr, %arg1: !llvm.ptr, %arg2: f64, %arg3: i32) {
@@ -239,7 +293,8 @@ module {
 }
 {% endhighlight %}
 
-{% highlight plaintext %}
+### LLVM IR Code Generation
+{% highlight llvm %}
 ; ModuleID = 'LLVMDialectModule'
 source_filename = "LLVMDialectModule"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -278,5 +333,5 @@ attributes #0 = { nofree norecurse nosync nounwind memory(argmem: readwrite) }
 !0 = !{i32 2, !"Debug Info Version", i32 3}
 {% endhighlight %}
 
-
+### Poster
 ![poster](/assets/images/xblang_poster.png)
